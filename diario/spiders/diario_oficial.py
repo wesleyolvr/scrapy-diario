@@ -18,18 +18,34 @@ class DiarioOficialSpider(scrapy.Spider):
 
         for next_page in urls:
             yield Request(next_page,callback=self.parse)
+            
+        yield Request(response.url, callback=self.anos_anteriores)
+    
+    def anos_anteriores(self,response):
+        name_paths = response.xpath('//div[@class="modal-body"]//a/text()').extract()
+        links_pdf = response.xpath('//div[@class="modal-body"]//a/@href').extract()
+        makedirs('Diarios anteriores')
+        for arquivo in zip(links_pdf, name_paths):
+            yield Request(response.urljoin(arquivo[0]), meta={'name_file':arquivo[1]},callback=self.baixa_anos_anteriores)
+
+
+    def baixa_anos_anteriores(self,response):
+        name_file = response.meta.get('name_file')
+        self.logger.info('Saving PDF %s', name_file.encode('utf-8'))
+        with open('{}/{}'.format('Diarios anteriores',name_file.encode('utf-8')), 'wb') as f:
+            f.write(response.body)
 
     def baixa(self,response):
-        path = response.meta.get('path')
-        ano = path.split('-')[-1]
+        name_file = response.meta.get('path')
+        ano = name_file.split('-')[-1]
         try:
             makedirs(ano)
-            self.logger.info('Saving PDF %s', path)
-            with open('{}/{}.pdf'.format(ano,path), 'wb') as f:
+            self.logger.info('Saving PDF %s', name_file)
+            with open('{}/{}'.format(ano,name_file), 'wb') as f:
                 f.write(response.body)
         except OSError:
-            self.logger.info('Saving PDF %s', path)
-            with open('{}/{}.pdf'.format(ano,path), 'wb') as f:
+            self.logger.info('Saving PDF %s', name_file)
+            with open('{}/{}'.format(ano,name_file), 'wb') as f:
                 f.write(response.body)
             
 
